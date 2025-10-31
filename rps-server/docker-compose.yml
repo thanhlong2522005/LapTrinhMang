@@ -1,0 +1,28 @@
+version: '3.8'
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: rps_mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: 123456
+      MYSQL_DATABASE: rps_game
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  server:
+    build: .
+    container_name: rps_server
+    restart: always
+    depends_on:
+      - mysql
+    env_file:
+      - .env
+    ports:
+      - "3000:3000"
+    command: ["npm", "run", "dev"]
+
+volumes:
+  mysql_data:

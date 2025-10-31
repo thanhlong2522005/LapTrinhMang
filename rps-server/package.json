@@ -1,16 +1,26 @@
 {
   "name": "rps-server",
   "version": "1.0.0",
-  "main": "index.js",
+  "description": "Rock-Paper-Scissors Server - REST API & Socket",
+  "main": "app.js",
+  "type": "module",
   "scripts": {
+    "start": "node app.js",
+    "dev": "nodemon app.js",
     "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "sequelize": "^6.37.1",
+    "mysql2": "^3.11.0",
+    "dotenv": "^16.4.5",
+    "uuid": "^13.0.0",
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.7"
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
-  "description": "",
-  "dependencies": {
-    "uuid": "^13.0.0",
-    "ws": "^8.18.3"
-  }
+  "license": "ISC"
 }
