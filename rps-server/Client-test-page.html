@@ -1,0 +1,109 @@
+<!-- client.html -->
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>RPS WS Client (Test)</title>
+  <style>
+    body { font-family: Arial; margin: 16px; }
+    .log { border: 1px solid #ccc; height: 300px; overflow: auto; padding:8px; background:#f9f9f9;}
+    button { margin:4px; padding:8px 12px; }
+  </style>
+</head>
+<body>
+  <h3>RPS WebSocket Client (test)</h3>
+  <div>
+    Server URL: <input id="url" value="ws://localhost:3000" style="width:300px"/>
+    <button id="connect">Connect</button>
+    <button id="disconnect">Disconnect</button>
+  </div>
+  <div>
+    Username: <input id="username" value="Player" />
+    <button id="join">JOIN</button>
+    <button id="leave">LEAVE</button>
+  </div>
+
+  <div>
+    <strong>Make Move:</strong>
+    <button data-choice="rock">Rock</button>
+    <button data-choice="paper">Paper</button>
+    <button data-choice="scissors">Scissors</button>
+  </div>
+
+  <div class="log" id="log"></div>
+
+<script>
+let ws = null;
+let clientId = null;
+let currentRoom = null;
+
+const logEl = document.getElementById('log');
+function log(msg) {
+  const el = document.createElement('div');
+  el.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+  logEl.appendChild(el);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+document.getElementById('connect').onclick = () => {
+  const url = document.getElementById('url').value;
+  ws = new WebSocket(url);
+  ws.onopen = () => log('Connected');
+  ws.onmessage = (ev) => {
+    try {
+      const msg = JSON.parse(ev.data);
+      handleMsg(msg);
+    } catch (e) {
+      log('Received: ' + ev.data);
+    }
+  };
+  ws.onclose = () => log('Disconnected');
+  ws.onerror = (e) => log('Socket error');
+};
+
+document.getElementById('disconnect').onclick = () => {
+  if (ws) ws.close();
+};
+
+document.getElementById('join').onclick = () => {
+  if (!ws || ws.readyState !== WebSocket.OPEN) { log('Connect first'); return; }
+  const username = document.getElementById('username').value || 'Player';
+  ws.send(JSON.stringify({ event: 'JOIN', payload: { username } }));
+};
+
+document.getElementById('leave').onclick = () => {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ event: 'LEAVE', payload: {} }));
+  }
+};
+
+document.querySelectorAll('button[data-choice]').forEach(b => {
+  b.onclick = () => {
+    const choice = b.getAttribute('data-choice');
+    if (!ws || ws.readyState !== WebSocket.OPEN) { log('Connect first'); return; }
+    if (!currentRoom) { log('Not in a room yet'); return; }
+    ws.send(JSON.stringify({ event: 'MOVE', payload: { roomId: currentRoom, choice } }));
+    log('Sent MOVE: ' + choice);
+  };
+});
+
+function handleMsg(msg) {
+  log('Server → ' + JSON.stringify(msg));
+  const e = (msg.event || '').toUpperCase();
+  if (e === 'INFO' && msg.payload && msg.payload.clientId) {
+    clientId = msg.payload.clientId;
+  }
+  if (e === 'MATCH_FOUND' && msg.payload && msg.payload.roomId) {
+    currentRoom = msg.payload.roomId;
+    log('Matched! Room: ' + currentRoom + ' Opponent: ' + (msg.payload.opponent || 'Unknown'));
+  }
+  if (e === 'ROUND_START') {
+    log('ROUND_START: ' + JSON.stringify(msg.payload));
+  }
+  if (e === 'RESULT') {
+    log('ROUND RESULT: ' + JSON.stringify(msg.payload));
+  }
+}
+</script>
+</body>
+</html>
