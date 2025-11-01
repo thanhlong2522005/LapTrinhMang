@@ -13,5 +13,6 @@ const sequelize = new Sequelize(
     logging: false,
   }
 );
+await sequelize.sync({ force: true });
 
 export default sequelize;

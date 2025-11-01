@@ -1,191 +1,228 @@
-// server/src/game.js
-/**
- * Game class:
- * - roomId
- * - players: array of WebSocket (2 players assumed)
- * - choices: map ws.id -> choice
- * - timers: per-round timeout
- * Events sent to clients (JSON messages):
- *   - 'GAME_START' payload: { roomId }
- *   - 'ROUND_START' payload: { roundId, timeout }
- *   - 'RESULT' payload: { roundId, results: [{ playerId, username, choice, scoreChange }], summary }
- *   - 'INFO' generic messages
- *
- * Client should send MOVE: { roomId, choice } where choice in 'rock'|'paper'|'scissors'
- */
+import axios from "axios";
 
-const VALID = new Set(['rock', 'paper', 'scissors']);
+const VALID = new Set(["rock", "paper", "scissors"]);
 
 function judge(choiceA, choiceB) {
-  if (choiceA === choiceB) return 0; // tie
+  if (choiceA === choiceB) return 0;
   if (
-    (choiceA === 'rock' && choiceB === 'scissors') ||
-    (choiceA === 'scissors' && choiceB === 'paper') ||
-    (choiceA === 'paper' && choiceB === 'rock')
-  ) return 1; // A wins
-  return -1; // B wins
+    (choiceA === "rock" && choiceB === "scissors") ||
+    (choiceA === "scissors" && choiceB === "paper") ||
+    (choiceA === "paper" && choiceB === "rock")
+  )
+    return 1;
+  return -1;
 }
 
 class Game {
   constructor(roomId, playerSockets, sendFunc, onGameEnd) {
     this.roomId = roomId;
-    this.players = playerSockets; // array of ws
-    this.send = sendFunc; // (ws, msgObj) => {}
-    this.onGameEnd = onGameEnd; // callback when game ends / someone leaves
+    this.players = playerSockets;
+    this.send = sendFunc;
+    this.onGameEnd = onGameEnd;
     this.running = false;
     this.round = 0;
-    this.choices = new Map(); // ws.id -> choice
-    this.roundTimeout = 15000; // 15 seconds to make a move
-    this.nextRoundDelay = 5000; // 5s between rounds
+    this.choices = new Map();
+    this.roundTimeout = 15000;
+    this.nextRoundDelay = 5000;
     this._roundTimer = null;
     this._stopping = false;
-    this._usernames = new Map(); // ws.id -> username (if provided previously via MATCH_FOUND we don't have username here; clients can send username in JOIN and matchMaker saved it but not accessible here; we'll send what we can)
-    // Try to collect username if previously sent via stored ws property (not guaranteed)
-    this.players.forEach(ws => {
+    this._usernames = new Map();
+    this._roundsData = []; // ✅ lưu từng round
+
+    this.players.forEach((ws) => {
       this._usernames.set(ws.id, ws.username || `Player-${ws.id}`);
     });
   }
 
+  /** 🔹 Gửi đến tất cả người chơi */
+  broadcast(message) {
+    this.players.forEach((ws) => {
+      if (ws.readyState === ws.OPEN) {
+        ws.send(JSON.stringify(message));
+      }
+    });
+  }
+
+  /** 🔹 Bắt đầu game */
   start() {
     if (this.running) return;
     this.running = true;
     this.round = 0;
-    this.broadcast({ event: 'GAME_START', payload: { roomId: this.roomId, msg: 'Game starting' } });
-    setTimeout(() => this.startRound(), 500); // small delay
+    this.broadcast({
+      event: "GAME_START",
+      payload: { roomId: this.roomId, msg: "Game starting" },
+    });
+    setTimeout(() => this.startRound(), 500);
   }
 
+  /** 🔹 Bắt đầu round mới */
   startRound() {
     if (!this.running || this._stopping) return;
     this.round += 1;
     this.choices.clear();
-    const roundId = `r${this.round}`;
-    this.broadcast({ event: 'ROUND_START', payload: { roundId, timeout: this.roundTimeout } });
-    // set timer
+
+    this.broadcast({
+      event: "ROUND_START",
+      payload: { roundNumber: this.round, timeout: this.roundTimeout },
+    });
+
     if (this._roundTimer) clearTimeout(this._roundTimer);
-    this._roundTimer = setTimeout(() => {
-      this.endRound('timeout');
-    }, this.roundTimeout);
+    this._roundTimer = setTimeout(() => this.endRound("timeout"), this.roundTimeout);
   }
 
+  /** 🔹 Nhận lựa chọn từ người chơi */
   handlePlayerMove(ws, choice) {
     if (!this.running || this._stopping) return;
     if (!VALID.has(choice)) {
-      this.send(ws, { event: 'ERROR', payload: { message: 'Invalid choice' } });
+      this.send(ws, { event: "ERROR", payload: { message: "Invalid choice" } });
       return;
     }
-    // ensure ws belongs to this game
     if (!this.players.includes(ws)) {
-      this.send(ws, { event: 'ERROR', payload: { message: 'You are not in this room or game' } });
+      this.send(ws, { event: "ERROR", payload: { message: "You are not in this room" } });
       return;
     }
-    this.choices.set(ws.id, choice);
-    this.send(ws, { event: 'INFO', payload: { message: `Choice received: ${choice}` } });
 
-    // If both choices present -> end round early
+    this.choices.set(ws.id, choice);
+    this.send(ws, { event: "INFO", payload: { message: `Choice received: ${choice}` } });
+
     if (this.choices.size >= this.players.length) {
-      if (this._roundTimer) {
-        clearTimeout(this._roundTimer);
-        this._roundTimer = null;
-      }
-      this.endRound('all_moves_in');
+      clearTimeout(this._roundTimer);
+      this._roundTimer = null;
+      this.endRound("all_moves_in");
     }
   }
 
+  /** 🔹 Kết thúc 1 round */
   endRound(reason) {
-    // compute results; for 2 players assumed
-    const roundId = `r${this.round}`;
-    // get players choices (default 'no_move' if missing)
     const pA = this.players[0];
     const pB = this.players[1];
     const choiceA = this.choices.get(pA.id) || null;
     const choiceB = this.choices.get(pB.id) || null;
 
     let summary = { reason, choiceA, choiceB, winner: null };
-
     let results = [];
+    let res = 0;
 
     if (choiceA && choiceB) {
-      const res = judge(choiceA, choiceB); // 1: A wins, 0 tie, -1 B wins
-      if (res === 1) summary.winner = pA.id;
-      else if (res === -1) summary.winner = pB.id;
-      else summary.winner = null;
+      res = judge(choiceA, choiceB);
+      if (res === 1) summary.winner = pA.userId;
+      else if (res === -1) summary.winner = pB.userId;
+
       results = [
-        { playerId: pA.id, username: this._usernames.get(pA.id) || `P-${pA.id}`, choice: choiceA, outcome: res === 1 ? 'win' : (res === 0 ? 'tie' : 'lose') },
-        { playerId: pB.id, username: this._usernames.get(pB.id) || `P-${pB.id}`, choice: choiceB, outcome: res === -1 ? 'win' : (res === 0 ? 'tie' : 'lose') }
+        {
+          playerId: pA.userId,
+          username: this._usernames.get(pA.id),
+          choice: choiceA,
+          outcome: res === 1 ? "win" : res === 0 ? "tie" : "lose",
+        },
+        {
+          playerId: pB.userId,
+          username: this._usernames.get(pB.id),
+          choice: choiceB,
+          outcome: res === -1 ? "win" : res === 0 ? "tie" : "lose",
+        },
       ];
     } else if (!choiceA && !choiceB) {
-      summary.winner = null;
       results = [
-        { playerId: pA.id, username: this._usernames.get(pA.id) || `P-${pA.id}`, choice: null, outcome: 'no_move' },
-        { playerId: pB.id, username: this._usernames.get(pB.id) || `P-${pB.id}`, choice: null, outcome: 'no_move' }
+        { playerId: pA.userId, username: this._usernames.get(pA.id), choice: null, outcome: "no_move" },
+        { playerId: pB.userId, username: this._usernames.get(pB.id), choice: null, outcome: "no_move" },
       ];
     } else {
-      // one player moved, the other didn't -> mover wins by default
       const mover = choiceA ? pA : pB;
       const non = choiceA ? pB : pA;
-      summary.winner = mover.id;
+      summary.winner = mover.userId;
       results = [
-        { playerId: mover.id, username: this._usernames.get(mover.id)||`P-${mover.id}`, choice: choiceA||choiceB, outcome: 'win_by_default' },
-        { playerId: non.id, username: this._usernames.get(non.id)||`P-${non.id}`, choice: null, outcome: 'no_move' }
+        {
+          playerId: mover.userId,
+          username: this._usernames.get(mover.id),
+          choice: choiceA || choiceB,
+          outcome: "win_by_default",
+        },
+        {
+          playerId: non.userId,
+          username: this._usernames.get(non.id),
+          choice: null,
+          outcome: "no_move",
+        },
       ];
     }
 
-    // send RESULT to each player
     this.broadcast({
-      event: 'RESULT',
-      payload: {
-        roomId: this.roomId,
-        roundId,
-        results,
-        summary
-      }
+      event: "RESULT",
+      payload: { roomId: this.roomId, round: this.round, results, summary },
     });
 
-    // schedule next round if still running
+    // ✅ Lưu round vào bộ nhớ
+    this._roundsData.push({
+      roundNumber: this.round,
+      moveP1: choiceA,
+      moveP2: choiceB,
+      result: res === 1 ? "P1" : res === -1 ? "P2" : "draw",
+    });
+
     if (!this._stopping) {
       setTimeout(() => {
-        // double-check players still connected
-        if (this.players.every(ws => ws.readyState === ws.OPEN)) {
+        if (this.players.every((ws) => ws.readyState === ws.OPEN)) {
           this.startRound();
         } else {
-          this.shutdown('player_disconnect');
+          this.shutdown("player_disconnect");
         }
       }, this.nextRoundDelay);
     }
   }
 
-  playerLeave(ws, reason = 'left') {
-    // someone left: notify opponent, end game
-    const other = this.players.find(p => p !== ws);
-    try {
-      if (other && other.readyState === other.OPEN) {
-        this.send(other, { event: 'INFO', payload: { message: `Opponent left (${reason}). Game ended.` } });
-      }
-    } catch (e) {}
-    this.shutdown('player_leave');
-    if (typeof this.onGameEnd === 'function') {
-      this.onGameEnd(ws); // inform matchMaker to cleanup room
+  /** 🔹 Người chơi rời */
+  playerLeave(ws, reason = "left") {
+    const other = this.players.find((p) => p !== ws);
+    if (other && other.readyState === other.OPEN) {
+      this.send(other, {
+        event: "INFO",
+        payload: { message: `Opponent left (${reason}). Game ended.` },
+      });
     }
+    this.shutdown("player_leave");
+    if (this.onGameEnd) this.onGameEnd(ws);
   }
 
-  shutdown(reason = 'shutdown') {
+  /** 🔹 Kết thúc game, lưu kết quả */
+  async shutdown(reason = "shutdown") {
     this._stopping = true;
     this.running = false;
-    if (this._roundTimer) {
-      clearTimeout(this._roundTimer);
-      this._roundTimer = null;
-    }
-    // final notice
-    this.broadcast({ event: 'INFO', payload: { message: `Game ended: ${reason}` } });
-  }
+    if (this._roundTimer) clearTimeout(this._roundTimer);
 
-  broadcast(obj) {
-    this.players.forEach(ws => {
-      try {
-        this.send(ws, obj);
-      } catch (e) {}
-    });
+    this.broadcast({ event: "INFO", payload: { message: `Game ended: ${reason}` } });
+
+    try {
+      const pA = this.players[0];
+      const pB = this.players[1];
+
+      const player1Id = pA.userId;
+      const player2Id = pB.userId;
+
+      // ✅ xác định ai thắng nhiều hơn
+      let scoreA = 0, scoreB = 0;
+      for (const r of this._roundsData) {
+        if (r.result === "P1") scoreA++;
+        else if (r.result === "P2") scoreB++;
+      }
+
+      const winnerId = scoreA > scoreB ? player1Id : scoreB > scoreA ? player2Id : null;
+
+      const payload = {
+        player1Id,
+        player2Id,
+        winnerId,
+        rounds: this._roundsData,
+      };
+
+      console.log(`📦 [MatchMaker] Saving match:`, payload);
+
+      const res = await axios.post("http://localhost:3000/api/matches", payload);
+      console.log(`[Game] ✅ Match ${this.roomId} saved (${res.status})`);
+    } catch (err) {
+      console.error(`[Game] ❌ Failed to save match ${this.roomId}:`, err.message);
+    }
   }
 }
 
-module.exports = Game;
+export default Game;
