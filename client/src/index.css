@@ -1,0 +1,249 @@
+:root {
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: light dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #242424;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  font-weight: 500;
+  color: #646cff;
+  text-decoration: inherit;
+}
+a:hover {
+  color: #535bf2;
+}
+
+body {
+  margin: 0;
+  display: flex;
+  place-items: center;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+h1 {
+  font-size: 3.2em;
+  line-height: 1.1;
+}
+
+button {
+  border-radius: 8px;
+  border: 1px solid transparent;
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  font-weight: 500;
+  font-family: inherit;
+  background-color: #1a1a1a;
+  cursor: pointer;
+  transition: border-color 0.25s;
+}
+button:hover {
+  border-color: #646cff;
+}
+button:focus,
+button:focus-visible {
+  outline: 4px auto -webkit-focus-ring-color;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color: #213547;
+    background-color: #ffffff;
+  }
+  a:hover {
+    color: #747bff;
+  }
+  button {
+    background-color: #f9f9f9;
+  }
+}
+/* 1. Reset cơ bản và cài đặt phông chữ */
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  
+  /* Tạo nền tối (dark mode) cho "ngầu" */
+  background-color: #282c34;
+  color: white;
+  
+  /* Đảm bảo body luôn cao bằng màn hình */
+  min-height: 100vh; 
+}
+
+/* 2. 🔥 PHÉP THUẬT "VÀO GIỮA" 🔥 */
+#root {
+  /* Biến #root (nơi App React của em ở) thành một hộp linh hoạt */
+  display: flex;
+  flex-direction: column; /* Xếp nội dung theo chiều dọc */
+  
+  /* Căn giữa theo chiều dọc */
+  justify-content: center;
+  
+  /* Căn giữa theo chiều ngang */
+  align-items: center; 
+  
+  /* Bắt #root phải cao bằng 100% màn hình */
+  min-height: 100vh; 
+  
+  width: 100%;
+  text-align: center; /* Căn giữa chữ (cho H1) */
+}
+/* 3. Tạo một "khung" chung cho nội dung */
+.container {
+  background-color: #3a3f4a; /* Nền cho cái khung */
+  padding: 2rem 3rem;
+  border-radius: 12px; /* Bo góc "mềm mại" */
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2); /* Đổ bóng */
+  min-width: 300px;
+  max-width: 500px;
+}
+
+h1 {
+  color: #61dafb; /* Màu xanh React cho tiêu đề */
+  margin-top: 0;
+}
+
+/* 4. "Chuẩn hóa" Nút bấm (Button) */
+button {
+  background-color: #61dafb; /* Màu xanh React */
+  color: #282c34; /* Chữ đen */
+  border: none;
+  border-radius: 8px;
+  padding: 12px 24px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease; /* Hiệu ứng mượt mà */
+  margin-top: 1rem;
+}
+
+button:hover {
+  background-color: #52b5d3;
+  transform: translateY(-2px); /* Hiệu ứng nhấc nút lên */
+}
+
+/* 5. "Chuẩn hóa" Ô nhập liệu (Input - cho HomePage) */
+input {
+  font-size: 16px;
+  padding: 10px 15px;
+  border-radius: 8px;
+  border: 2px solid #61dafb;
+  background: #282c34;
+  color: white;
+  margin-right: 10px;
+  margin-bottom: 1rem; /* Tạo khoảng cách trên mobile */
+}
+
+/* 6. Giao diện cho Trang Game (GamePage) */
+.game-board {
+  display: flex;
+  justify-content: space-around; /* 2 người chơi 2 bên */
+  width: 100%;
+  margin: 2rem 0;
+}
+
+.player-info {
+  font-size: 1.2rem;
+  font-weight: bold;
+}
+
+.player-info .choice {
+  font-size: 3rem; /* Biểu tượng emoji (❓, ✊) cho to */
+  margin-top: 10px;
+  height: 50px; /* Giữ chiều cao cố định */
+}
+
+.choices {
+  margin-top: 1.5rem;
+  border-top: 1px solid #5a6170;
+  padding-top: 1.5rem;
+}
+
+.choice-button {
+  font-size: 2.5rem; /* Emoji (Kéo, Búa, Bao) cho to */
+  margin: 0 10px;
+  background: #5a6170;
+  padding: 1rem;
+  border-radius: 50%; /* Nút tròn */
+}
+
+.choice-button:hover {
+  background: #7a8294;
+}
+
+/* 7. Giao diện cho Trang Kết Quả (ResultPage) */
+.result-message {
+  font-size: 2.5rem;
+  font-weight: bold;
+  margin-bottom: 1rem;
+}
+
+/* Thêm màu cho Thắng/Thua/Hòa */
+.result-message.WIN { color: #28a745; }
+.result-message.LOSE { color: #dc3545; }
+.result-message.DRAW { color: #ffc107; }
+
+/* 8. Thông báo lỗi (nếu có) */
+.error-message {
+  color: #dc3545;
+  margin-top: 1rem;
+  font-weight: bold;
+}
+
+body {
+  background-color: #f5faff;
+  font-family: 'Poppins', sans-serif;
+  color: #333;
+}
+
+.container {
+  border: 1px solid #cceeff;
+  border-radius: 12px;
+  padding: 20px;
+  background-color: #ffffff;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+}
+
+.score-box {
+  background-color: #ffffff;
+  border: 2px solid #a5d8ff;
+  border-radius: 10px;
+}
+
+.join-button {
+  font-family: 'Poppins', sans-serif; /* hoặc 'Quicksand', 'Nunito' */
+  font-size: 18px;
+  font-weight: 600;
+  color: #ffffff;
+  background-color: #00bcd4;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 20px;
+  cursor: pointer;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  transition: background-color 0.3s ease;
+}
+
+.join-button:hover {
+  background-color: #0097a7;
+}
+.score-box {
+  background-color: #ffffff;
+  border: 2px solid #00bcd4;
+  border-radius: 10px;
+  padding: 10px 20px;
+  margin: 20px;
+  font-size: 18px;
+  color: #333;
+}
