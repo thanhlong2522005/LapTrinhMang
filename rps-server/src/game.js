@@ -1,6 +1,13 @@
 // server/src/game.js
 const VALID = new Set(["ROCK", "PAPER", "SCISSORS"]);
 
+/**
+ * judge: so sánh hai nước đi
+ * trả về:
+ *   1  -> choiceA thắng choiceB
+ *   0  -> hòa
+ *  -1  -> choiceA thua choiceB
+ */
 function judge(choiceA, choiceB) {
   if (choiceA === choiceB) return 0;
   if (
@@ -16,25 +23,29 @@ function judge(choiceA, choiceB) {
 class Game {
   constructor(roomId, playerSockets, sendFunc, onGameEnd) {
     this.roomId = roomId;
-    this.players = playerSockets; // array of ws sockets
-    this.send = sendFunc; // function(toWs, msgObj)
-    this.onGameEnd = onGameEnd;
+    this.players = playerSockets; // mảng các socket ws
+    this.send = sendFunc; // callback send: (toWs, msgObj)
+    this.onGameEnd = onGameEnd; // callback khi game kết thúc
     this.running = false;
     this.round = 0;
-    this.choices = new Map(); // ws.id -> normalizedChoice (UPPERCASE)
-    this.roundTimeout = 15000;
-    this.nextRoundDelay = 5000;
+    this.choices = new Map(); // mapping ws.id -> lựa chọn (UPPERCASE)
+    this.roundTimeout = 15000; // thời gian chờ mỗi round (ms)
+    this.nextRoundDelay = 5000; // delay trước round kế tiếp (ms)
     this._roundTimer = null;
     this._stopping = false;
     this._usernames = new Map();
-    this._roundsData = []; // lưu rounds để matchMaker dùng khi cần
+    this._roundsData = []; // lưu dữ liệu mỗi round để matchMaker dùng khi cần
 
+    // Số ván tối đa trước khi game tự dừng (mặc định 5)
+    this.maxRounds = 5;
+
+    // Khởi tạo username cho mỗi socket
     this.players.forEach((ws) => {
       this._usernames.set(ws.id, ws.username || `Player-${ws.id}`);
     });
   }
 
-  // Gửi tới tất cả socket còn mở
+  // Gửi message tới tất cả socket vẫn mở
   broadcast(message) {
     this.players.forEach((ws) => {
       try {
@@ -63,7 +74,7 @@ class Game {
     this.round += 1;
     this.choices.clear();
 
-    // Notify clients round start and provide current players info (reset currentMove)
+    // Thông báo bắt đầu round, gửi thông tin player (reset currentMove)
     const playersPayload = this.players.map((ws) => ({
       id: ws.id,
       username: this._usernames.get(ws.id),
@@ -75,7 +86,7 @@ class Game {
       payload: { roundNumber: this.round, timeout: this.roundTimeout },
     });
 
-    // Also emit GAME_UPDATE so clients can reset UI if they expect it
+    // Gửi GAME_UPDATE để client reset UI nếu cần
     this.broadcast({
       event: "GAME_UPDATE",
       payload: { players: playersPayload },
@@ -85,7 +96,7 @@ class Game {
     this._roundTimer = setTimeout(() => this.endRound("timeout"), this.roundTimeout);
   }
 
-  // normalize incoming choice to uppercase standard
+  // Chuẩn hóa lựa chọn (uppercase)
   _normalizeChoice(choice) {
     if (!choice && choice !== "") return null;
     return String(choice).trim().toUpperCase();
@@ -106,6 +117,7 @@ class Game {
     this.choices.set(ws.id, choice);
     this.send(ws, { event: "INFO", payload: { message: `Choice received: ${choice}` } });
 
+    // Nếu tất cả đã chọn, kết thúc round sớm
     if (this.choices.size >= this.players.length) {
       if (this._roundTimer) {
         clearTimeout(this._roundTimer);
@@ -128,14 +140,15 @@ class Game {
       res = judge(choiceA, choiceB);
       if (res === 1) winnerWsId = pA.id;
       else if (res === -1) winnerWsId = pB.id;
+      else winnerWsId = null; // hòa
     } else if (!choiceA && !choiceB) {
-      winnerWsId = null;
+      winnerWsId = null; // cả hai không đánh -> không có winner
     } else {
-      // one moved, other didn't -> mover wins by default
+      // Một người đánh, người kia không đánh -> người đánh thắng mặc định
       winnerWsId = choiceA ? pA.id : pB.id;
     }
 
-    // Build standardized round result that client expects
+    // Chuẩn hóa payload gửi cho client (với "DRAW" để hiển thị)
     const roundPayload = {
       player1Move: choiceA,
       player2Move: choiceB,
@@ -145,10 +158,10 @@ class Game {
       reason,
     };
 
-    // Broadcast ROUND_RESULT so client store picks it up
+    // Gửi kết quả round cho các client
     this.broadcast({ event: "ROUND_RESULT", payload: roundPayload });
 
-    // Push round data for persistence
+    // Lưu dữ liệu round để dùng sau (winner là ws.id khi có người thắng, hoặc null nếu hòa)
     this._roundsData.push({
       roundNumber: this.round,
       player1Id: pA.userId ?? null,
@@ -158,10 +171,21 @@ class Game {
       winner: winnerWsId ?? null,
     });
 
-    // schedule next round if game still running
+    // Nếu đã đạt số ván tối đa, dừng game ngay và gọi shutdown
+    if (this.round >= this.maxRounds) {
+      this.broadcast({
+        event: "GAME_OVER",
+        payload: { message: `Trò chơi kết thúc sau ${this.maxRounds} ván` },
+      });
+      // shutdown sẽ xử lý lưu match và gọi onGameEnd
+      this.shutdown("max_rounds_reached");
+      return;
+    }
+
+    // Lên lịch start round tiếp theo nếu game vẫn chạy
     if (!this._stopping) {
       setTimeout(() => {
-        // send NEXT_ROUND (or GAME_UPDATE) to reset client currentMove
+        // gửi NEXT_ROUND (hoặc GAME_UPDATE) để client reset currentMove
         const playersPayload = this.players.map((ws) => ({
           id: ws.id,
           username: this._usernames.get(ws.id),
@@ -169,7 +193,7 @@ class Game {
         }));
         this.broadcast({ event: "NEXT_ROUND", payload: { players: playersPayload } });
 
-        // start next round if sockets still open
+        // bắt đầu round tiếp nếu socket còn mở
         if (this.players.every((ws) => ws && ws.readyState === ws.OPEN)) {
           this.startRound();
         } else {
@@ -200,18 +224,42 @@ class Game {
 
     this.broadcast({ event: "INFO", payload: { message: `Game ended: ${reason}` } });
 
-    // compute final winner (by rounds)
+    // Tính điểm cuối (theo số ván thắng)
     let scoreA = 0,
       scoreB = 0;
+
+    // Lưu ý: r.winner là ws.id khi có người thắng, hoặc null khi hòa.
+    // Ta sẽ bỏ qua các round hòa (không tăng điểm).
     for (const r of this._roundsData) {
-      if (r.winner === this.players[0].id) scoreA++;
-      else if (r.winner === this.players[1].id) scoreB++;
+      if (!r.winner) {
+        // hòa -> không tăng điểm
+        continue;
+      }
+      if (r.winner === this.players[0].id) {
+        scoreA++;
+      } else if (r.winner === this.players[1].id) {
+        scoreB++;
+      } else {
+        // winner không khớp (có thể do socket đổi) -> bỏ qua
+      }
     }
+
     const player1Id = this.players[0].userId ?? null;
     const player2Id = this.players[1].userId ?? null;
     const winnerId = scoreA > scoreB ? player1Id : scoreB > scoreA ? player2Id : null;
 
-    // Optionally call onGameEnd to let MatchMaker persist match
+    // Nếu cần, có thể gửi kết quả chung cuộc cho client:
+    this.broadcast({
+      event: "MATCH_RESULT",
+      payload: {
+        roomId: this.roomId,
+        player1: { userId: player1Id, score: scoreA },
+        player2: { userId: player2Id, score: scoreB },
+        winnerId,
+      },
+    });
+
+    // Gọi callback để MatchMaker biết game đã kết thúc và xử lý (lưu match, đóng room...)
     if (this.onGameEnd) this.onGameEnd(null);
   }
 }
