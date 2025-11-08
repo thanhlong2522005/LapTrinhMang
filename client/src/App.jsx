@@ -1,36 +1,56 @@
+import React from 'react';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useGameStore } from './store/useGameStore';
+
 import HomePage from './pages/HomePage';
 import GamePage from './pages/GamePage';
 import ResultPage from './pages/ResultPage';
-import './index.css'; 
+import LeaderboardPage from './pages/LeaderboardPage'; 
 
 function App() {
-  
-  // ❌ DÒNG LỖI CŨ CỦA EM:
-  // const { isConnected, roomId, gameResult } = useGameStore((state) => ({
-  //   isConnected: state.isConnected,
-  //   roomId: state.roomId,
-  //   gameResult: state.gameResult,
-  // }));
-
-  // ✅ THAY THẾ BẰNG 3 DÒNG CHUẨN NÀY:
-  // Cách gọi state "ổn định" (stable selector)
-  const isConnected = useGameStore((state) => state.isConnected);
   const roomId = useGameStore((state) => state.roomId);
   const gameResult = useGameStore((state) => state.gameResult);
-  
-  // Luồng 3: Hiển thị Kết quả
-  if (gameResult) {
-    return <ResultPage />;
-  }
+  const location = useLocation();
 
-  // Luồng 2: Hiển thị Game
-  if (isConnected && roomId) {
-    return <GamePage />;
-  }
+  return (
+    <Routes>
+      {/* Trang Chủ (Lobby) */}
+      <Route
+        path="/"
+        element={
+          roomId ? <Navigate to="/game" state={{ from: location }} replace /> : <HomePage />
+        }
+      />
 
-  // Luồng 1: Hiển thị Lobby (HomePage)
-  return <HomePage />;
+      {/* Trang Bảng Xếp Hạng (của bạn) */}
+      <Route path="/leaderboard" element={<LeaderboardPage />} />
+
+      {/* Trang Game (Đang chơi) */}
+      <Route
+        path="/game"
+        element={
+          gameResult ? (
+            <Navigate to="/result" state={{ from: location }} replace />
+          ) : !roomId ? (
+            <Navigate to="/" state={{ from: location }} replace />
+          ) : (
+            <GamePage />
+          )
+        }
+      />
+
+      {/* Trang Kết Quả (Thắng/Thua) */}
+      <Route
+        path="/result"
+        element={
+          !gameResult ? <Navigate to="/" state={{ from: location }} replace /> : <ResultPage />
+        }
+      />
+      
+      {/* URL không tồn tại */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
 }
 
 export default App;
