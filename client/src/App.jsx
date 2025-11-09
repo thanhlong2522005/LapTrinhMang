@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import { useState, useEffect, useRef } from 'react';
 import './App.css';
 
@@ -17,7 +16,7 @@ function App() {
   const [waitingForOpponent, setWaitingForOpponent] = useState(false);
   const [logs, setLogs] = useState([]);
   const [myId, setMyId] = useState(null);
-  const [lastResult, setLastResult] = useState(null); // ✅ THÊM DÒNG NÀY
+  const [lastResult, setLastResult] = useState(null);
 
   const wsRef = useRef(null);
 
@@ -25,26 +24,22 @@ function App() {
     const websocket = new WebSocket(WS_URL);
 
     websocket.onopen = () => {
-      console.log('✅ WebSocket connected');
       setConnected(true);
       addLog('✅ Kết nối server thành công');
     };
 
     websocket.onmessage = (event) => {
       const msg = JSON.parse(event.data);
-      console.log('📩 Received:', msg);
       handleMessage(msg);
     };
 
     websocket.onclose = () => {
-      console.log('❌ WebSocket disconnected');
       setConnected(false);
       addLog('❌ Mất kết nối với server');
       setGameState('LOGIN');
     };
 
-    websocket.onerror = (error) => {
-      console.error('WebSocket error:', error);
+    websocket.onerror = () => {
       addLog('❌ Lỗi kết nối');
     };
 
@@ -59,17 +54,13 @@ function App() {
   const handleMessage = (msg) => {
     const { event, payload } = msg;
 
-    console.log('📩 Event:', event, 'Payload:', payload); // ✅ Debug
-
     switch (event) {
       case 'INFO':
         if (payload.clientId) {
           setMyId(payload.clientId);
           addLog(`🆔 ID của bạn: ${payload.clientId}`);
         }
-        if (payload.message) {
-          addLog(`ℹ️ ${payload.message}`);
-        }
+        if (payload.message) addLog(`ℹ️ ${payload.message}`);
         break;
 
       case 'WAITING_FOR_OPPONENT':
@@ -91,7 +82,6 @@ function App() {
 
       case 'ROUND_START':
         setRound(payload.roundNumber);
-        // ✅ Reset khi bắt đầu round mới
         setMyMove(null);
         setOpponentMove(null);
         setLastResult(null);
@@ -102,7 +92,7 @@ function App() {
         break;
 
       case 'MOVE_CONFIRMED':
-        addLog(`✅ Đã nhận lựa chọn của bạn`);
+        addLog('✅ Đã nhận lựa chọn của bạn');
         if (payload.waitingForOpponent) {
           setWaitingForOpponent(true);
           addLog('⏳ Đang chờ đối thủ chọn...');
@@ -110,43 +100,33 @@ function App() {
         break;
 
       case 'ROUND_RESULT': {
-        // ✅ SỬA LẠI TOÀN BỘ CASE NÀY
-        console.log('🎯 ROUND_RESULT:', payload);
-        
         const { player1, player2, winner, result, round } = payload;
-        
-        // Cập nhật players
+
         setPlayers([player1, player2]);
 
-        // Xác định nước đi của mình và đối thủ
         const meIsP1 = player1.id === myId;
         const myChoice = meIsP1 ? player1.move : player2.move;
         const opponentChoice = meIsP1 ? player2.move : player1.move;
-        
+
         setMyMove(myChoice);
         setOpponentMove(opponentChoice);
         setLastResult({ round, winner, result });
 
-        // Ghi log
         addLog(`\n📊 === KẾT QUẢ ROUND ${round} ===`);
         addLog(`${player1.username}: ${translateMove(player1.move)} (${player1.score} điểm)`);
         addLog(`${player2.username}: ${translateMove(player2.move)} (${player2.score} điểm)`);
-        
-        if (winner === 'DRAW' || result === 'DRAW') {
-          addLog('🤝 HÒA! Cả hai +1 điểm');
-        } else if (winner === myId) {
-          addLog('🎉 BẠN THẮNG! +1 điểm');
-        } else {
-          addLog('😢 BẠN THUA! Không được điểm');
-        }
-        
+
+        if (winner === 'DRAW' || result === 'DRAW') addLog('🤝 HÒA! Cả hai +1 điểm');
+        else if (winner === myId) addLog('🎉 BẠN THẮNG! +1 điểm');
+        else addLog('😢 BẠN THUA! Không được điểm');
+
         setWaitingForOpponent(false);
         break;
       }
 
       case 'NEXT_ROUND':
         setPlayers(payload.players || []);
-        addLog(`\n⏭️ Chuẩn bị round tiếp theo...`);
+        addLog('\n⏭️ Chuẩn bị round tiếp theo...');
         break;
 
       case 'OPPONENT_LEFT':
@@ -155,20 +135,15 @@ function App() {
         break;
 
       case 'GAME_END':
-        const finalScores = payload.finalScores;
-        addLog('\n🏁 === GAME KẾT THÚC ===');
-        if (finalScores?.player1) {
-          addLog(`Player 1: ${finalScores.player1.score} điểm`);
+        {
+          const finalScores = payload.finalScores;
+          addLog('\n🏁 === GAME KẾT THÚC ===');
+          if (finalScores?.player1) addLog(`Player 1: ${finalScores.player1.score} điểm`);
+          if (finalScores?.player2) addLog(`Player 2: ${finalScores.player2.score} điểm`);
+          if (payload.winner) addLog(`🏆 Người thắng: ${payload.winner}`);
+          else addLog('🤝 Hòa tổng!');
+          setGameState('GAME_END');
         }
-        if (finalScores?.player2) {
-          addLog(`Player 2: ${finalScores.player2.score} điểm`);
-        }
-        if (payload.winner) {
-          addLog(`🏆 Người thắng: ${payload.winner}`);
-        } else {
-          addLog('🤝 Hòa tổng!');
-        }
-        setGameState('GAME_END');
         break;
 
       case 'ERROR':
@@ -176,17 +151,18 @@ function App() {
         break;
 
       default:
-        console.log('Unknown event:', event);
+        // unknown event
+        break;
     }
   };
 
   const translateMove = (move) => {
     const moves = {
-      'ROCK': '🪨 Búa',
-      'PAPER': '📄 Bao',
-      'SCISSORS': '✂️ Kéo',
-      'null': '❌ Không chọn',
-      null: '❌ Không chọn'
+      ROCK: '✊ Búa',
+      PAPER: '🖐️ Bao',
+      SCISSORS: '✌️ Kéo',
+      null: '❌ Không chọn',
+      'null': '❌ Không chọn'
     };
     return moves[move] || move;
   };
@@ -198,7 +174,6 @@ function App() {
   const send = (event, payload) => {
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({ event, payload }));
-      console.log('📤 Sent:', event, payload);
     } else {
       addLog('❌ Chưa kết nối WebSocket');
     }
@@ -249,12 +224,11 @@ function App() {
   return (
     <div className="App">
       <h1>🎮 KÉO BÚA BAO ONLINE</h1>
-      
+
       <div className="status">
         {connected ? '🟢 Đã kết nối' : '🔴 Mất kết nối'}
       </div>
 
-      {/* LOGIN */}
       {gameState === 'LOGIN' && (
         <div className="login-screen">
           <h2>Đăng nhập</h2>
@@ -263,7 +237,7 @@ function App() {
             placeholder="Nhập tên của bạn"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleJoin()}
+            onKeyDown={(e) => e.key === 'Enter' && handleJoin()}
           />
           <button onClick={handleJoin} disabled={!connected}>
             Tham gia Game
@@ -271,7 +245,6 @@ function App() {
         </div>
       )}
 
-      {/* WAITING */}
       {gameState === 'WAITING' && (
         <div className="waiting-screen">
           <h2>⏳ Đang chờ đối thủ...</h2>
@@ -280,7 +253,6 @@ function App() {
         </div>
       )}
 
-      {/* IN GAME */}
       {gameState === 'IN_GAME' && (
         <div className="game-screen">
           <div className="scoreboard">
@@ -297,7 +269,6 @@ function App() {
 
           <h2>Round {round}</h2>
 
-          {/* ✅ HIỂN THỊ KẾT QUẢ SAU KHI CẢ HAI CHỌN XONG */}
           {myMove && opponentMove && (
             <div className="result-display" style={{
               background: '#f0f0f0',
@@ -307,9 +278,9 @@ function App() {
               textAlign: 'center'
             }}>
               <h3>🎯 Kết quả Round {lastResult?.round}</h3>
-              <div style={{ 
-                display: 'flex', 
-                justifyContent: 'space-around', 
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-around',
                 margin: '20px 0',
                 alignItems: 'center'
               }}>
@@ -333,31 +304,20 @@ function App() {
             </div>
           )}
 
-          {/* ✅ NÚT CHỌN - CHỈ HIỆN KHI CHƯA CHỌN */}
           {!myMove && !waitingForOpponent && (
             <div className="choices">
-              <button
-                onClick={() => handleMove('ROCK')}
-                className="choice-btn rock"
-              >
-                🪨<br/>Búa
+              <button onClick={() => handleMove('ROCK')} className="choice-btn rock">
+                ✊<br />Búa
               </button>
-              <button
-                onClick={() => handleMove('PAPER')}
-                className="choice-btn paper"
-              >
-                📄<br/>Bao
+              <button onClick={() => handleMove('PAPER')} className="choice-btn paper">
+                🖐️<br />Bao
               </button>
-              <button
-                onClick={() => handleMove('SCISSORS')}
-                className="choice-btn scissors"
-              >
-                ✂️<br/>Kéo
+              <button onClick={() => handleMove('SCISSORS')} className="choice-btn scissors">
+                ✌️<br />Kéo
               </button>
             </div>
           )}
 
-          {/* ✅ ĐANG CHỜ ĐỐI THỦ */}
           {waitingForOpponent && !opponentMove && (
             <div style={{ textAlign: 'center', margin: '20px' }}>
               <h3>⏳ Đang chờ đối thủ chọn...</h3>
@@ -371,7 +331,6 @@ function App() {
         </div>
       )}
 
-      {/* GAME END */}
       {gameState === 'GAME_END' && (
         <div className="game-end-screen">
           <h2>🏁 Game kết thúc!</h2>
@@ -384,7 +343,6 @@ function App() {
         </div>
       )}
 
-      {/* LOG */}
       <div className="log-panel">
         <h3>📜 Nhật ký</h3>
         <div className="log-content">
@@ -396,60 +354,6 @@ function App() {
         </div>
       </div>
     </div>
-=======
-import React from 'react';
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { useGameStore } from './store/useGameStore';
-
-import HomePage from './pages/HomePage';
-import GamePage from './pages/GamePage';
-import ResultPage from './pages/ResultPage';
-import LeaderboardPage from './pages/LeaderboardPage'; 
-
-function App() {
-  const roomId = useGameStore((state) => state.roomId);
-  const gameResult = useGameStore((state) => state.gameResult);
-  const location = useLocation();
-
-  return (
-    <Routes>
-      {/* Trang Chủ (Lobby) */}
-      <Route
-        path="/"
-        element={
-          roomId ? <Navigate to="/game" state={{ from: location }} replace /> : <HomePage />
-        }
-      />
-
-      {/* Trang Bảng Xếp Hạng (của bạn) */}
-      <Route path="/leaderboard" element={<LeaderboardPage />} />
-
-      {/* Trang Game (Đang chơi) */}
-      <Route
-        path="/game"
-        element={
-          gameResult ? (
-            <Navigate to="/result" state={{ from: location }} replace />
-          ) : !roomId ? (
-            <Navigate to="/" state={{ from: location }} replace />
-          ) : (
-            <GamePage />
-          )
-        }
-      />
-
-      {/* Trang Kết Quả (Thắng/Thua) */}
-      <Route
-        path="/result"
-        element={
-          !gameResult ? <Navigate to="/" state={{ from: location }} replace /> : <ResultPage />
-        }
-      />
-      
-      {/* URL không tồn tại */}
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
->>>>>>> ed2af8dc94a8be55dadaf2f3ef91e13af27c6e0b
   );
 }
 
