@@ -8,6 +8,7 @@ import sequelize from "./db.js";
 import router from "./routes/index.js";
 import setupWsServer from "./src/wsServer.js";
 import "./models/associations.js";
+import cors from 'cors';
 
 //import { getMatch, createMatch } from "./controllers/matchController.js"; // ✅ import hàm controller
 
@@ -23,6 +24,8 @@ const server = http.createServer(app);
 setupWsServer(server);
 
 // 2️⃣ Cấu hình middleware
+app.use(cors());
+
 app.use(express.json());
 app.use("/api", router);
 

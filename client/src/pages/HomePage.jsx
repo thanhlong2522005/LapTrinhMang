@@ -1,17 +1,17 @@
 import React, { useState } from 'react';
 import { useGameStore } from '../store/useGameStore';
+import { Link } from 'react-router-dom';
 
 function HomePage() { 
   const [username, setUsername] = useState('Player' + Math.floor(Math.random() * 1000));
   
-  // Gọi 3 state một cách "ổn định"
   const connect = useGameStore((state) => state.connect);
   const isConnected = useGameStore((state) => state.isConnected);
   const error = useGameStore((state) => state.error);
 
   const handleJoin = () => {
     if (username.trim()) {
-      connect(username); // ✅ ĐÚNG: Chỉ gọi khi click
+      connect(username); 
     }
   };
 
@@ -28,6 +28,11 @@ function HomePage() {
     />
 
       <button onClick={handleJoin}>Tham Gia</button>
+
+      <Link to="/leaderboard" style={{ display: 'block', marginTop: '15px' }}>
+        Xem Bảng Xếp Hạng
+      </Link>
+
     </div>
   );
 }
