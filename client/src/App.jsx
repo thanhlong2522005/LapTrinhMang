@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import './App.css';
+import LeaderboardView from './components/LeaderboardView.jsx';
 
 const WS_URL = 'ws://localhost:3000';
 
@@ -242,7 +243,17 @@ function App() {
           <button onClick={handleJoin} disabled={!connected}>
             Tham gia Game
           </button>
+          <button 
+            onClick={() => setGameState('LEADERBOARD')} 
+            style={{ marginTop: '10px' }}
+          >
+            Xem Bảng Xếp Hạng
+          </button>
         </div>
+      )}
+
+      {gameState === 'LEADERBOARD' && (
+        <LeaderboardView onBack={() => setGameState('LOGIN')} />
       )}
 
       {gameState === 'WAITING' && (

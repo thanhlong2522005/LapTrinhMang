@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getLeaderboard } from '../services/api';
-import { Link } from 'react-router-dom';
 
-const LeaderboardPage = () => {
+const LeaderboardView = ({ onBack }) => {
   const [leaderboard, setLeaderboard] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -67,11 +66,12 @@ const LeaderboardPage = () => {
       
       {renderContent()}
       
-      <Link to="/">
-        <button style={{ marginTop: '20px' }}>Quay về Sảnh</button>
-      </Link>
+      {/* THAY THẾ <Link> BẰNG <button onClick> */}
+      <button onClick={onBack} style={{ marginTop: '20px' }}>
+        Quay về Sảnh
+      </button>
     </div>
   );
 };
 
-export default LeaderboardPage;
+export default LeaderboardView;
