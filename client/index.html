@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bảng giá Chứng khoán Realtime</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+    <header>
+        <h1>Bảng giá Chứng khoán</h1>
+    </header>
+
+    <main>
+        <section class="price-board">
+            <h2>Bảng giá Realtime</h2>
+            <table id="stock-table">
+                <thead>
+                    <tr>
+                        <th>Mã CK</th>
+                        <th>Giá</th>
+                        <th>+/- %</th>
+                        <th>Khối lượng</th>
+                    </tr>
+                </thead>
+                <tbody id="prices-body"></tbody>
+            </table>
+        </section>
+
+        <section class="chart-section">
+            <h2>Biểu đồ Realtime</h2>
+
+            <div id="chart-controls" class="chart-controls">
+                <div id="symbol-tabs" class="symbol-tabs"></div>
+
+                <div class="alert-controls">
+                    <label for="alert-threshold">Alert:</label>
+                    <input id="alert-threshold" type="number" step="0.01" placeholder="Giá cảnh báo" />
+                    <button id="set-alert" type="button">Set</button>
+                    <button id="clear-alert" type="button">Clear</button>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <canvas id="chart-canvas" height="240"></canvas>
+            </div>
+
+            <div id="ohlc" class="ohlc">
+                Mở: <span id="ohlc-open">-</span> |
+                Cao: <span id="ohlc-high">-</span> |
+                Thấp: <span id="ohlc-low">-</span> |
+                Hiện tại: <span id="ohlc-current">-</span>
+            </div>
+
+            <div class="controls" style="margin-top:10px">
+                <label for="symbol-select">Chọn mã để xem biểu đồ:</label>
+                <select id="symbol-select"></select>
+            </div>
+        </section>
+    </main>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- date adapter (luxon) + adapter for Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/luxon@3/build/global/luxon.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon"></script>
+
+    <!-- your chart wrapper (creates window.chartModule) -->
+    <script src="js/chart.js"></script>
+
+    <!-- DO NOT load ui.js here because it's an ES module (main.js imports it) -->
+    <!-- <script src="js/ui.js"></script> --> 
+
+    <!-- main.js is a module and will import ./ui.js -->
+    <script type="module" src="js/main.js"></script>
+
+</body>
+</html>
