@@ -121,13 +121,13 @@
         btn.onclick = () => select(symbol);
         tabs.appendChild(btn);
         // also add to select dropdown if exists
-        const sel = document.getElementById('symbol-select');
-        if (sel) {
-          const opt = document.createElement('option');
-          opt.value = symbol;
-          opt.textContent = symbol;
-          sel.appendChild(opt);
-        }
+        // const sel = document.getElementById('symbol-select');
+        // if (sel) {
+        //   const opt = document.createElement('option');
+        //   opt.value = symbol;
+        //   opt.textContent = symbol;
+        //   sel.appendChild(opt);
+        // }
       }
     }
   }
